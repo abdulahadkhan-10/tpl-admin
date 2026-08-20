@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F9F9F9;
+  --foreground: #1A1C1C;
+  --card: #ffffff;
+  --border: #E5E7EB;
+  --muted: #F8F9FA;
+  --gold: #FFB800;
+  --gold-tint: #FFF9E6;
+  --gold-dark: #7C5800;
+  --ink: #1A1C1C;
+}
+
+@theme inline {
+  --font-montserrat: var(--font-montserrat-google), ui-sans-serif, system-ui, sans-serif;
+  --font-roboto: var(--font-roboto-google), ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-gold: var(--gold);
+  --color-gold-tint: var(--gold-tint);
+  --color-gold-dark: var(--gold-dark);
+  --color-ink: var(--ink);
+}
+
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-roboto);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  * {
+    @apply border-border;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
