@@ -23,14 +23,24 @@ export default function StatCard({
 }) {
   const t = TONES[tone];
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-md p-4 flex items-center justify-between shadow-xs">
-      <div className="min-w-0">
-        <span className={`text-[10px] font-bold font-montserrat uppercase tracking-widest ${t.label}`}>{label}</span>
-        <span className="block text-2xl font-black font-montserrat text-[#1A1C1C] mt-0.5">{value}</span>
-        {trend && <span className="block text-[10.5px] text-slate-400 font-semibold mt-0.5 truncate">{trend}</span>}
+    <div className="bg-white border border-[#E5E7EB] rounded-md p-4 flex items-start justify-between shadow-xs h-full min-h-[112px] transition-all">
+      <div className="min-w-0 flex-1 flex flex-col justify-between h-full pr-2">
+        <div>
+          <span className={`block text-[10px] font-bold font-montserrat uppercase tracking-wider leading-tight min-h-[26px] ${t.label}`}>
+            {label}
+          </span>
+          <span className="block text-2xl font-black font-montserrat text-[#1A1C1C] mt-1 leading-none">
+            {value}
+          </span>
+        </div>
+        {trend && (
+          <span className="block text-[10.5px] text-slate-400 font-semibold mt-2.5 truncate">
+            {trend}
+          </span>
+        )}
       </div>
-      <div className={`w-10 h-10 rounded-md flex items-center justify-center border shrink-0 ${t.bg} ${t.border}`}>
-        <Icon size={18} className={t.icon} />
+      <div className={`w-9 h-9 rounded-md flex items-center justify-center border shrink-0 ${t.bg} ${t.border}`}>
+        <Icon size={17} className={t.icon} />
       </div>
     </div>
   );

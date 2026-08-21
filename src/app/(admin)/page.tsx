@@ -75,20 +75,20 @@ export default function DashboardPage() {
       />
 
       {/* Actionable KPI Metric Cards with Deep Links */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <Link href="/teams" className="block transition-transform hover:-translate-y-0.5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 items-stretch">
+        <Link href="/teams" className="block h-full transition-transform hover:-translate-y-0.5">
           <StatCard label="Active Clubs" value={leagueStats.activeClubs} icon={Shield} tone="gold" trend={leagueStats.activeClubsTrend} />
         </Link>
-        <Link href="/players" className="block transition-transform hover:-translate-y-0.5">
+        <Link href="/players" className="block h-full transition-transform hover:-translate-y-0.5">
           <StatCard label="Registered Players" value={leagueStats.registeredPlayers.toLocaleString()} icon={Users} tone="ink" trend={leagueStats.registeredPlayersTrend} />
         </Link>
-        <Link href="/teams" className="block transition-transform hover:-translate-y-0.5">
+        <Link href="/teams" className="block h-full transition-transform hover:-translate-y-0.5">
           <StatCard label="Pending Registrations" value={leagueStats.pendingRegistrations} icon={Clock} tone="warning" trend="Needs review" />
         </Link>
-        <Link href="/fixtures" className="block transition-transform hover:-translate-y-0.5">
+        <Link href="/fixtures" className="block h-full transition-transform hover:-translate-y-0.5">
           <StatCard label="Matches This Week" value={leagueStats.matchesThisWeek} icon={CalendarDays} tone="success" trend="On schedule" />
         </Link>
-        <Link href="/standings" className="block transition-transform hover:-translate-y-0.5">
+        <Link href="/standings" className="block h-full transition-transform hover:-translate-y-0.5">
           <StatCard label="Prize Pool" value={`£${leagueStats.prizePool.toLocaleString()}`} icon={Trophy} tone="gold" trend="Fully funded" />
         </Link>
       </div>

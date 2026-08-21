@@ -6,12 +6,7 @@ import {
   Send,
   Paperclip,
   ChevronDown,
-  ShieldAlert,
-  Users,
-  Tag,
   X,
-  UserCheck,
-  CheckCircle2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/ui/PageHeader";
@@ -125,7 +120,7 @@ export default function SupportPage() {
   const openCount = tickets.filter((t) => t.status !== "RESOLVED").length;
 
   return (
-    <div className="space-y-4 pb-6 min-w-0 flex flex-col h-[calc(100vh-100px)]">
+    <div className="space-y-4 min-w-0">
       <PageHeader
         eyebrow="League Operations Desk"
         title="Support Desk"
@@ -133,7 +128,7 @@ export default function SupportPage() {
       />
 
       {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-md border border-[#E5E7EB] shadow-xs shrink-0">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-md border border-[#E5E7EB] shadow-xs">
         {/* Status Filter Tabs */}
         <div className="flex gap-1 bg-[#F8F9FA] border border-[#E5E7EB] rounded-md p-1 overflow-x-auto custom-scrollbar">
           {STATUS_FILTERS.map((f) => (
@@ -185,17 +180,17 @@ export default function SupportPage() {
         </div>
       </div>
 
-      {/* Main Container: Split Column Layout with Natural Flex Height */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)] gap-5 min-h-0 min-w-0">
+      {/* Main Container: Split Column Layout with Fixed Viewport Fitting Height */}
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)] gap-5 min-w-0 h-[calc(100vh-270px)] min-h-[520px]">
         {/* Left Inquiries List */}
-        <div className="bg-white border border-[#E5E7EB] rounded-md shadow-xs flex flex-col min-h-0 min-w-0 overflow-hidden">
+        <div className="bg-white border border-[#E5E7EB] rounded-md shadow-xs flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
           <div className="px-4 py-3 border-b border-[#E5E7EB] bg-[#F8F9FA] flex items-center justify-between shrink-0">
             <span className="text-[10px] font-bold font-montserrat uppercase tracking-widest text-slate-400">
               Inquiries ({filtered.length})
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-[#E5E7EB]">
+          <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-[#E5E7EB] min-h-0">
             {filtered.length === 0 ? (
               <div className="p-8 text-center text-slate-400 space-y-1">
                 <p className="text-xs font-bold text-slate-500">No tickets found</p>
@@ -243,10 +238,10 @@ export default function SupportPage() {
 
         {/* Right Active Conversation Panel */}
         {selected ? (
-          <div className="bg-white border border-[#E5E7EB] rounded-md shadow-xs flex flex-col min-h-0 min-w-0 overflow-hidden">
-            {/* Clean Two-Row Spacious Header */}
+          <div className="bg-white border border-[#E5E7EB] rounded-md shadow-xs flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
+            {/* Header: Requester Details, Assigned Staff & Status */}
             <div className="p-4 border-b border-[#E5E7EB] bg-[#FAFBFB] shrink-0 space-y-3">
-              {/* Row 1: Requester Profile & Action Controls */}
+              {/* Row 1: Profile & Actions */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Avatar name={selected.requesterName} size="md" tone="ink" />
@@ -322,8 +317,8 @@ export default function SupportPage() {
               </div>
             </div>
 
-            {/* Conversation Messages Thread with Natural Scrolling */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 min-h-[220px]">
+            {/* Conversation Messages Thread with Internal Scrolling */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 min-h-0">
               {selected.messages.map((m) => (
                 <div key={m.id} className={`flex gap-3 max-w-[80%] ${m.isAdmin ? "ml-auto flex-row-reverse" : ""}`}>
                   <Avatar name={m.senderName} size="sm" tone={m.isAdmin ? "gold" : "muted"} />
@@ -347,7 +342,7 @@ export default function SupportPage() {
               ))}
             </div>
 
-            {/* Reply Input Bar */}
+            {/* Reply Input Bar — ALWAYS VISIBLE AT BOTTOM */}
             <div className="p-3.5 border-t border-[#E5E7EB] flex items-center gap-2.5 shrink-0 bg-[#FAFBFB]">
               <button
                 type="button"
