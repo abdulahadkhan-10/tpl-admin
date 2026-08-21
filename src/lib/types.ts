@@ -74,7 +74,29 @@ export interface Player {
   scoutedAt?: string | null;
 }
 
-export type FixtureStatus = "SCHEDULED" | "LIVE" | "FULL_TIME";
+export type FixtureStatus = "SCHEDULED" | "LIVE" | "FULL_TIME" | "POSTPONED";
+
+export interface GoalEvent {
+  id: string;
+  fixtureId: string;
+  clubId: string;
+  playerId?: string | null;
+  scorerName: string;
+  minute: number;
+  type?: "REGULAR" | "PENALTY" | "OWN_GOAL";
+  assistName?: string | null;
+}
+
+export interface CardEvent {
+  id: string;
+  fixtureId: string;
+  clubId: string;
+  playerId?: string | null;
+  playerName: string;
+  minute: number;
+  cardType: "YELLOW" | "RED";
+  reason?: string | null;
+}
 
 export interface Fixture {
   id: string;
@@ -89,6 +111,8 @@ export interface Fixture {
   homeScore: number | null;
   awayScore: number | null;
   minute: number | null;
+  goals?: GoalEvent[];
+  cards?: CardEvent[];
 }
 
 export interface StandingRow {

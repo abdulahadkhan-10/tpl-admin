@@ -77,8 +77,16 @@ export default function Sidebar() {
       >
         <div>
           <div className="p-4 pb-3.5 border-b border-[#E5E7EB] shrink-0 flex items-center justify-between min-w-0">
-            <Link href="/" className="flex items-center gap-2 group overflow-hidden min-w-0">
-              <Image src="/images/TPL_logo_Dark.png" alt="Talent Pro League" width={32} height={32} className="h-7 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform" />
+            <Link href="/" className="flex items-center gap-2.5 group overflow-hidden min-w-0">
+              <Image
+                src="/images/TPL_logo_Dark.png"
+                alt="Talent Pro League"
+                width={120}
+                height={36}
+                unoptimized
+                priority
+                className="h-8 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform"
+              />
               {!isCollapsed && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col min-w-0">
                   <span className="text-[11px] font-extrabold font-montserrat tracking-tight text-[#1A1C1C] uppercase leading-tight whitespace-nowrap">TPL Admin</span>
