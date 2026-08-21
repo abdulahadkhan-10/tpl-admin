@@ -1,11 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, ChevronDown, Bell } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 
 export default function Header() {
   const [seasonOpen, setSeasonOpen] = useState(false);
+  const [user, setUser] = useState<{ fullName: string; roleType: string } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("tpl_admin_user");
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch (err) {
+        console.error("Failed to parse user session", err);
+      }
+    }
+  }, []);
 
   return (
     <header className="h-16 bg-white border-b border-[#E5E7EB] px-4 md:px-6 flex items-center justify-between gap-4 shrink-0 shadow-xs">
@@ -53,10 +65,14 @@ export default function Header() {
         </button>
 
         <div className="flex items-center gap-2.5 pl-1 cursor-pointer">
-          <Avatar name="Alex Whitfield" size="sm" tone="gold" />
+          <Avatar name={user?.fullName ?? "Alex Whitfield"} size="sm" tone="gold" />
           <div className="hidden md:flex flex-col leading-tight">
-            <span className="text-xs font-bold font-montserrat text-[#1A1C1C]">Alex Whitfield</span>
-            <span className="text-[10px] text-slate-400 font-semibold">League Admin</span>
+            <span className="text-xs font-bold font-montserrat text-[#1A1C1C]">
+              {user?.fullName ?? "Alex Whitfield"}
+            </span>
+            <span className="text-[10px] text-slate-400 font-semibold">
+              {user?.roleType === "ADMIN" ? "League Admin" : (user?.roleType ?? "League Admin")}
+            </span>
           </div>
         </div>
       </div>

@@ -3,8 +3,10 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
+import { eraseCookie } from "@/lib/utils";
 import {
   LayoutDashboard,
   Shield,
@@ -29,8 +31,16 @@ interface MenuItem {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  function handleLogout() {
+    eraseCookie("tpl_admin_token");
+    localStorage.removeItem("tpl_admin_user");
+    toast.success("Successfully logged out");
+    router.push("/login");
+  }
 
   const openTicketCount = supportTickets.filter((t) => t.status !== "RESOLVED").length;
 
@@ -159,6 +169,7 @@ export default function Sidebar() {
           </Link>
 
           <button
+            onClick={handleLogout}
             title={isCollapsed ? "Log Out" : undefined}
             className={`w-full flex items-center ${isCollapsed ? "justify-center py-3 px-0" : "justify-between px-3.5 py-3"} rounded-xl text-xs font-black text-rose-600 bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/60 transition-all cursor-pointer`}
           >
