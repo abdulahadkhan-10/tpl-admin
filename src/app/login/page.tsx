@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import { Eye, EyeOff, Mail, Lock, AlertCircle, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { setCookie, getCookie } from "@/lib/utils";
@@ -195,14 +197,13 @@ export default function LoginPage() {
                 >
                   Password
                 </label>
-                <button
-                  type="button"
+                <Link
+                  href="/forgot-password"
                   tabIndex={-1}
                   className="text-xs text-zinc-400 hover:text-[#FFB800] transition-colors"
-                  onClick={() => toast("Please contact your system administrator to reset credentials.")}
                 >
                   Forgot password?
-                </button>
+                </Link>
               </div>
               <div className="relative flex items-center">
                 <Lock size={18} className="absolute left-4 text-zinc-500 pointer-events-none" />

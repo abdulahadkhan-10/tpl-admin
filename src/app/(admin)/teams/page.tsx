@@ -42,24 +42,10 @@ export default function TeamsPage() {
   const [activeDetailTab, setActiveDetailTab] = useState<"OVERVIEW" | "SQUAD">("OVERVIEW");
 
   // Modals state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
-  // New Club Form State
-  const [newClubName, setNewClubName] = useState("");
-  const [newClubCode, setNewClubCode] = useState("");
-  const [newRegion, setNewRegion] = useState("London North");
-  const [newAgeGroup, setNewAgeGroup] = useState("U19");
-  const [newCity, setNewCity] = useState("London");
-  const [newFounded, setNewFounded] = useState("2020");
-  const [newManagerName, setNewManagerName] = useState("");
-  const [newManagerRole, setNewManagerRole] = useState("Head Coach");
-  const [newManagerPhone, setNewManagerPhone] = useState("");
-  const [newManagerEmail, setNewManagerEmail] = useState("");
-  const [newFeeAmount, setNewFeeAmount] = useState("450");
-  const [newFeeStatus, setNewFeeStatus] = useState<RegistrationFeeStatus>("PENDING");
 
   // Fetch real teams from backend API
   const fetchTeams = async () => {
@@ -171,53 +157,6 @@ export default function TeamsPage() {
     }
   }
 
-  function handleCreateClub(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newClubName.trim() || !newManagerName.trim()) {
-      toast.error("Please fill in required club and manager details.");
-      return;
-    }
-
-    const newClub: Club = {
-      id: `club-${Date.now()}`,
-      name: newClubName.trim(),
-      code: (newClubCode.trim() || newClubName.slice(0, 2)).toUpperCase(),
-      region: newRegion.trim(),
-      ageGroup: newAgeGroup.trim(),
-      cityOrTown: newCity.trim(),
-      logoUrl: null,
-      registrationFeePaid: newFeeStatus === "PAID",
-      registrationFeeStatus: newFeeStatus,
-      registrationFeeAmount: Number(newFeeAmount) || 450,
-      registrationFeeDate: newFeeStatus === "PAID" ? new Date().toISOString().split("T")[0] : null,
-      playerCount: 0,
-      avgAge: 18.5,
-      founded: Number(newFounded) || 2024,
-      manager: {
-        id: `mgr-${Date.now()}`,
-        fullName: newManagerName.trim(),
-        role: newManagerRole.trim(),
-        email: newManagerEmail.trim() || null,
-        contactNumber: newManagerPhone.trim() || "+44 7700 900000",
-      },
-      assignedStaff: [],
-      verified: false,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-
-    setClubsList((prev) => [newClub, ...prev]);
-    setSelectedId(newClub.id);
-    setIsAddModalOpen(false);
-    toast.success(`Club "${newClub.name}" added to directory!`);
-
-    // Reset Form
-    setNewClubName("");
-    setNewClubCode("");
-    setNewManagerName("");
-    setNewManagerPhone("");
-    setNewManagerEmail("");
-  }
-
   async function handleUpdateFee(e: React.FormEvent, status: RegistrationFeeStatus, amount: number, date: string) {
     e.preventDefault();
     if (!selected) return;
@@ -279,14 +218,19 @@ export default function TeamsPage() {
         subtitle={`${clubsList.length} clubs enrolled · Season 2025/26`}
         action={
           <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-4 sm:px-5 py-2.5 bg-[#1A1C1C] hover:bg-black text-[#FFB800] text-xs font-bold font-montserrat uppercase tracking-wider rounded-md transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer border border-[#1A1C1C]"
+            onClick={() => {
+              fetchTeams();
+              toast.success("Team directory synchronized");
+            }}
+            disabled={isLoading}
+            className="px-4 sm:px-5 py-2.5 bg-[#1A1C1C] hover:bg-black text-[#FFB800] text-xs font-bold font-montserrat uppercase tracking-wider rounded-md transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer border border-[#1A1C1C] disabled:opacity-50"
           >
-            <Plus size={16} className="text-[#FFB800]" />
-            <span>Add Club</span>
+            <RefreshCw size={15} className={`text-[#FFB800] ${isLoading ? "animate-spin" : ""}`} />
+            <span>Sync Directory</span>
           </button>
         }
       />
+
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-3.5 sm:p-4 rounded-md border border-[#E5E7EB] shadow-xs">
@@ -639,192 +583,6 @@ export default function TeamsPage() {
           </div>
         )}
       </div>
-
-      {/* Add Club Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-5 border-b border-[#E5E7EB] bg-[#F8F9FA]">
-              <div className="flex items-center gap-2.5">
-                <Building2 size={20} className="text-[#FFB800]" />
-                <div>
-                  <h3 className="text-sm font-black font-montserrat uppercase text-[#1A1C1C]">Register New Club</h3>
-                  <p className="text-[11px] text-slate-500 font-medium">Add club franchise to League Season 2025/26</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-black hover:bg-white transition-colors cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateClub} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1.5">
-                    Club Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Northside United"
-                    value={newClubName}
-                    onChange={(e) => setNewClubName(e.target.value)}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-semibold text-[#1A1C1C] focus:outline-none focus:border-[#FFB800]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1.5">
-                    Crest Code
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={3}
-                    placeholder="e.g. NU"
-                    value={newClubCode}
-                    onChange={(e) => setNewClubCode(e.target.value.toUpperCase())}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-bold text-[#1A1C1C] uppercase focus:outline-none focus:border-[#FFB800]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1.5">
-                    Region
-                  </label>
-                  <input
-                    type="text"
-                    value={newRegion}
-                    onChange={(e) => setNewRegion(e.target.value)}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-semibold text-[#1A1C1C] focus:outline-none focus:border-[#FFB800]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1.5">
-                    Division
-                  </label>
-                  <select
-                    value={newAgeGroup}
-                    onChange={(e) => setNewAgeGroup(e.target.value)}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-semibold text-[#1A1C1C] focus:outline-none focus:border-[#FFB800] cursor-pointer"
-                  >
-                    <option value="Premier Division">Premier Division</option>
-                    <option value="Championship">Championship</option>
-                    <option value="U19">U19 League</option>
-                    <option value="U18">U18 League</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1.5">
-                    Founded
-                  </label>
-                  <input
-                    type="number"
-                    value={newFounded}
-                    onChange={(e) => setNewFounded(e.target.value)}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-semibold text-[#1A1C1C] focus:outline-none focus:border-[#FFB800]"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-[#E5E7EB] space-y-3">
-                <p className="text-xs font-black font-montserrat uppercase text-[#1A1C1C]">Head Coach / Manager</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. David Sterling"
-                      value={newManagerName}
-                      onChange={(e) => setNewManagerName(e.target.value)}
-                      className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-semibold text-[#1A1C1C] focus:outline-none focus:border-[#FFB800]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1">
-                      Contact Phone *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="+44 7700 900000"
-                      value={newManagerPhone}
-                      onChange={(e) => setNewManagerPhone(e.target.value)}
-                      className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-semibold text-[#1A1C1C] focus:outline-none focus:border-[#FFB800]"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1">
-                    Official Email
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="coach@club.com"
-                    value={newManagerEmail}
-                    onChange={(e) => setNewManagerEmail(e.target.value)}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-semibold text-[#1A1C1C] focus:outline-none focus:border-[#FFB800]"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-[#E5E7EB] space-y-3">
-                <p className="text-xs font-black font-montserrat uppercase text-[#1A1C1C]">Registration Fee Setup</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1">
-                      Fee Amount (£)
-                    </label>
-                    <input
-                      type="number"
-                      value={newFeeAmount}
-                      onChange={(e) => setNewFeeAmount(e.target.value)}
-                      className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-semibold text-[#1A1C1C] focus:outline-none focus:border-[#FFB800]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10.5px] font-bold font-montserrat uppercase tracking-wider text-slate-500 mb-1">
-                      Initial Status
-                    </label>
-                    <select
-                      value={newFeeStatus}
-                      onChange={(e) => setNewFeeStatus(e.target.value as RegistrationFeeStatus)}
-                      className="w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-md px-3.5 py-2 text-xs font-semibold text-[#1A1C1C] focus:outline-none focus:border-[#FFB800] cursor-pointer"
-                    >
-                      <option value="PAID">Paid</option>
-                      <option value="PENDING">Pending</option>
-                      <option value="OVERDUE">Overdue</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E5E7EB]">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2.5 rounded-md text-xs font-bold text-slate-600 hover:bg-[#F8F9FA] transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#1A1C1C] hover:bg-black text-[#FFB800] text-xs font-black font-montserrat uppercase tracking-wider rounded-md transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-                >
-                  <Plus size={14} className="text-[#FFB800]" />
-                  <span>Create Club</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Edit Club Modal */}
       {isEditModalOpen && selected && (

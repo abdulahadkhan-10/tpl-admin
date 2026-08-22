@@ -15,6 +15,7 @@ import {
   Shirt,
   ChevronDown,
   Sliders,
+  RefreshCw,
 } from "lucide-react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 import toast from "react-hot-toast";
@@ -350,6 +351,19 @@ export default function PlayersPage() {
         eyebrow="Scouting & Roster Network"
         title="Players & Scouting"
         subtitle={`${playersList.length} prospects tracked across all league clubs`}
+        action={
+          <button
+            onClick={() => {
+              fetchPlayers();
+              toast.success("Prospects directory synchronized");
+            }}
+            disabled={isLoading}
+            className="px-4 sm:px-5 py-2.5 bg-[#1A1C1C] hover:bg-black text-[#FFB800] text-xs font-bold font-montserrat uppercase tracking-wider rounded-md transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer border border-[#1A1C1C] disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={`text-[#FFB800] ${isLoading ? "animate-spin" : ""}`} />
+            <span>Sync Prospects</span>
+          </button>
+        }
       />
 
       {/* Filter Bar */}
