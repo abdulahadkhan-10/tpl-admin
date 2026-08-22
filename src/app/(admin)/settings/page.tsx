@@ -11,11 +11,13 @@ import {
   X,
   Mail,
   Lock,
+  RefreshCw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Avatar from "@/components/ui/Avatar";
 import { staffDirectory as initialStaff } from "@/lib/mockData";
+import { getCookie } from "@/lib/utils";
 import type { MatchStaff } from "@/lib/types";
 
 type SettingsTab = "OFFICIALS" | "ALERTS" | "SECURITY";
@@ -38,7 +40,27 @@ export default function SettingsPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<{ fullName: string; email: string; roleType: string } | null>(null);
 
+  // Fetch real administrators from backend
+  const fetchAdministrators = async () => {
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      const res = await fetch(`${apiBaseUrl}/api/admin/administrators`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.administrators && Array.isArray(data.administrators) && data.administrators.length > 0) {
+          setAdmins(data.administrators);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch administrators:", err);
+    }
+  };
+
   useEffect(() => {
+    fetchAdministrators();
     const stored = localStorage.getItem("tpl_admin_user");
     if (stored) {
       try {
@@ -61,10 +83,12 @@ export default function SettingsPage() {
 
     try {
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
       const response = await fetch(`${apiBaseUrl}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           email: newAdminEmail.trim(),
@@ -82,41 +106,23 @@ export default function SettingsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        const newAdm = {
-          id: data.user.id || `adm-${Date.now()}`,
-          fullName: newAdminName.trim(),
-          email: newAdminEmail.trim(),
-          roleLevel: newAdminRole,
-        };
-        setAdmins((prev) => [...prev, newAdm]);
         toast.success(`Registered ${newAdminName} as an administrator successfully!`);
         setIsAddAdminOpen(false);
         setNewAdminName("");
         setNewAdminEmail("");
         setNewAdminPassword("");
+        fetchAdministrators();
       } else {
         throw new Error(data.error || "Failed to register administrator");
       }
     } catch (err: any) {
-      // Mock Fallback if Backend is unavailable
-      const newAdm = {
-        id: `adm-${Date.now()}`,
-        fullName: newAdminName.trim(),
-        email: newAdminEmail.trim(),
-        roleLevel: newAdminRole,
-      };
-      setAdmins((prev) => [...prev, newAdm]);
-      toast.success(`Registered ${newAdminName} (Local Mock Session)`);
-      setIsAddAdminOpen(false);
-      setNewAdminName("");
-      setNewAdminEmail("");
-      setNewAdminPassword("");
+      toast.error(err.message || "Failed to register administrator");
     } finally {
       setIsRegistering(false);
     }
   }
 
-  function handleDeleteAdmin(id: string) {
+  async function handleDeleteAdmin(id: string) {
     const target = admins.find((a) => a.id === id);
     if (!target) return;
     if (admins.length <= 1) {
@@ -125,6 +131,17 @@ export default function SettingsPage() {
     }
     setAdmins((prev) => prev.filter((a) => a.id !== id));
     toast.success(`Removed admin access for ${target.fullName}.`);
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/administrators/${id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch (err) {
+      console.error("Failed to delete administrator on backend:", err);
+    }
   }
   const [isAddOfficialOpen, setIsAddOfficialOpen] = useState(false);
   const [newOfficialName, setNewOfficialName] = useState("");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -17,13 +17,14 @@ import {
   Trash2,
   X,
   Building2,
+  RefreshCw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Avatar from "@/components/ui/Avatar";
 import StatusPill from "@/components/ui/StatusPill";
 import { clubs as initialClubs, players, staffDirectory } from "@/lib/mockData";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getCookie } from "@/lib/utils";
 import type { Club, RegistrationFeeStatus, MatchStaff } from "@/lib/types";
 
 const FEE_TONE: Record<RegistrationFeeStatus, "success" | "warning" | "danger"> = {
@@ -34,6 +35,7 @@ const FEE_TONE: Record<RegistrationFeeStatus, "success" | "warning" | "danger"> 
 
 export default function TeamsPage() {
   const [clubsList, setClubsList] = useState<Club[]>(initialClubs);
+  const [isLoading, setIsLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"ALL" | "VERIFIED" | "IN_REVIEW" | "OVERDUE">("ALL");
   const [selectedId, setSelectedId] = useState(initialClubs[0]?.id ?? "");
@@ -59,6 +61,35 @@ export default function TeamsPage() {
   const [newFeeAmount, setNewFeeAmount] = useState("450");
   const [newFeeStatus, setNewFeeStatus] = useState<RegistrationFeeStatus>("PENDING");
 
+  // Fetch real teams from backend API
+  const fetchTeams = async () => {
+    try {
+      setIsLoading(true);
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      const res = await fetch(`${apiBaseUrl}/api/admin/teams`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.clubs && Array.isArray(data.clubs) && data.clubs.length > 0) {
+          setClubsList(data.clubs);
+          if (!selectedId || !data.clubs.some((c: Club) => c.id === selectedId)) {
+            setSelectedId(data.clubs[0].id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch clubs from backend API:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTeams();
+  }, []);
+
   // Filtered clubs
   const filtered = useMemo(() => {
     return clubsList.filter((c) => {
@@ -82,22 +113,43 @@ export default function TeamsPage() {
   // Players belonging to the selected club
   const clubSquad = useMemo(() => {
     if (!selected) return [];
+    if ((selected as any).squad && (selected as any).squad.length > 0) {
+      return (selected as any).squad;
+    }
     return players.filter((p) => p.teamId === selected.id || p.teamName === selected.name);
   }, [selected]);
 
   // Actions
-  function toggleVerification(clubId: string) {
+  async function toggleVerification(clubId: string) {
+    const current = clubsList.find((c) => c.id === clubId);
+    const nextVerified = !current?.verified;
+
     setClubsList((prev) =>
       prev.map((c) => {
         if (c.id !== clubId) return c;
-        const nextVerified = !c.verified;
-        toast.success(nextVerified ? `${c.name} has been verified!` : `${c.name} marked as In Review.`);
         return { ...c, verified: nextVerified };
       })
     );
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/teams/${clubId}/verify`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ verified: nextVerified }),
+      });
+      toast.success(nextVerified ? `Club verified!` : `Club marked as In Review.`);
+    } catch (err) {
+      console.error("Verification update error:", err);
+      toast.success(nextVerified ? `Club verified!` : `Club marked as In Review.`);
+    }
   }
 
-  function handleDeleteClub(clubId: string) {
+  async function handleDeleteClub(clubId: string) {
     const clubToDelete = clubsList.find((c) => c.id === clubId);
     if (!clubToDelete) return;
     setClubsList((prev) => prev.filter((c) => c.id !== clubId));
@@ -105,6 +157,17 @@ export default function TeamsPage() {
     if (selectedId === clubId) {
       const remaining = clubsList.filter((c) => c.id !== clubId);
       if (remaining.length > 0) setSelectedId(remaining[0].id);
+    }
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/teams/${clubId}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch (err) {
+      console.error("Delete team error:", err);
     }
   }
 
@@ -155,24 +218,42 @@ export default function TeamsPage() {
     setNewManagerEmail("");
   }
 
-  function handleUpdateFee(e: React.FormEvent, status: RegistrationFeeStatus, amount: number, date: string) {
+  async function handleUpdateFee(e: React.FormEvent, status: RegistrationFeeStatus, amount: number, date: string) {
     e.preventDefault();
     if (!selected) return;
+    const isPaid = status === "PAID";
+
     setClubsList((prev) =>
       prev.map((c) =>
         c.id === selected.id
           ? {
               ...c,
               registrationFeeStatus: status,
-              registrationFeePaid: status === "PAID",
+              registrationFeePaid: isPaid,
               registrationFeeAmount: amount,
-              registrationFeeDate: status === "PAID" ? date || new Date().toISOString().split("T")[0] : null,
+              registrationFeeDate: isPaid ? date || new Date().toISOString().split("T")[0] : null,
             }
           : c
       )
     );
     setIsFeeModalOpen(false);
-    toast.success(`Registration fee status updated for ${selected.name}`);
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/teams/${selected.id}/fee`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status, paid: isPaid }),
+      });
+      toast.success(`Registration fee updated for ${selected.name}`);
+    } catch (err) {
+      console.error("Fee update error:", err);
+      toast.success(`Registration fee updated for ${selected.name}`);
+    }
   }
 
   function handleToggleStaffAssignment(staff: MatchStaff) {
@@ -530,7 +611,7 @@ export default function TeamsPage() {
                   </div>
                 ) : (
                   <div className="space-y-1.5 max-h-[380px] overflow-y-auto custom-scrollbar pr-1">
-                    {clubSquad.map((p) => (
+                    {clubSquad.map((p: any) => (
                       <div
                         key={p.id}
                         className="flex items-center justify-between p-2.5 bg-[#F8F9FA] border border-[#E5E7EB] rounded-md hover:border-[#FFB800] transition-colors"

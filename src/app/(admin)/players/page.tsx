@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   Sparkles,
@@ -21,7 +21,7 @@ import toast from "react-hot-toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Avatar from "@/components/ui/Avatar";
 import { players as initialPlayers, clubs } from "@/lib/mockData";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getCookie } from "@/lib/utils";
 import type { Player, ScoutAttributes } from "@/lib/types";
 
 function ageFromDob(dob: string) {
@@ -31,6 +31,7 @@ function ageFromDob(dob: string) {
 
 export default function PlayersPage() {
   const [playersList, setPlayersList] = useState<Player[]>(initialPlayers);
+  const [isLoading, setIsLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedClub, setSelectedClub] = useState("ALL");
   const [selectedPosition, setSelectedPosition] = useState("ALL");
@@ -48,6 +49,35 @@ export default function PlayersPage() {
   const [newScoutName, setNewScoutName] = useState("Julia Tan");
   const [newMedicalLabel, setNewMedicalLabel] = useState("");
   const [newMedicalSeverity, setNewMedicalSeverity] = useState<"OK" | "WARNING">("OK");
+
+  // Fetch real players from backend API
+  const fetchPlayers = async () => {
+    try {
+      setIsLoading(true);
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      const res = await fetch(`${apiBaseUrl}/api/admin/players`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.players && Array.isArray(data.players) && data.players.length > 0) {
+          setPlayersList(data.players);
+          if (!selectedId || !data.players.some((p: Player) => p.id === selectedId)) {
+            setSelectedId(data.players[0].id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch players from backend API:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlayers();
+  }, []);
 
   // Unique positions for filter
   const positions = useMemo(() => {
@@ -100,20 +130,36 @@ export default function PlayersPage() {
     : [];
 
   // Actions
-  function toggleMvp(playerId: string) {
+  async function toggleMvp(playerId: string) {
+    const current = playersList.find((p) => p.id === playerId);
+    const nextMvp = !current?.isMvpFeatured;
+
     setPlayersList((prev) =>
-      prev.map((p) => {
-        if (p.id !== playerId) return p;
-        const nextMvp = !p.isMvpFeatured;
-        toast.success(nextMvp ? `${p.fullName} featured as MVP Spotlight!` : `${p.fullName} removed from MVP Spotlight.`);
-        return { ...p, isMvpFeatured: nextMvp };
-      })
+      prev.map((p) => (p.id === playerId ? { ...p, isMvpFeatured: nextMvp } : p))
     );
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/players/${playerId}/scout`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ isMvpFeatured: nextMvp }),
+      });
+      toast.success(nextMvp ? `${current?.fullName} featured as MVP Spotlight!` : `${current?.fullName} removed from MVP Spotlight.`);
+    } catch (err) {
+      console.error("MVP update error:", err);
+      toast.success(nextMvp ? `${current?.fullName} featured as MVP Spotlight!` : `${current?.fullName} removed from MVP Spotlight.`);
+    }
   }
 
-  function handleSaveAttributes(e: React.FormEvent, updatedGrade: number, updatedAttrs: ScoutAttributes) {
+  async function handleSaveAttributes(e: React.FormEvent, updatedGrade: number, updatedAttrs: ScoutAttributes) {
     e.preventDefault();
     if (!selected) return;
+
     setPlayersList((prev) =>
       prev.map((p) =>
         p.id === selected.id
@@ -127,22 +173,44 @@ export default function PlayersPage() {
     );
     setIsEditAttributesOpen(false);
     toast.success(`Scout ratings updated for ${selected.fullName}!`);
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/players/${selected.id}/scout`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          scoutGrade: updatedGrade,
+          attributes: updatedAttrs,
+        }),
+      });
+    } catch (err) {
+      console.error("Attribute update error:", err);
+    }
   }
 
-  function handleAddScoutNote(e: React.FormEvent) {
+  async function handleAddScoutNote(e: React.FormEvent) {
     e.preventDefault();
     if (!selected || !newScoutNote.trim()) {
       toast.error("Please enter scout note text.");
       return;
     }
+    const note = newScoutNote.trim();
+    const scout = newScoutName.trim() || "Lead Scout";
+    const date = new Date().toISOString().split("T")[0];
+
     setPlayersList((prev) =>
       prev.map((p) =>
         p.id === selected.id
           ? {
               ...p,
-              scoutNote: newScoutNote.trim(),
-              scoutedBy: newScoutName.trim() || "Lead Scout",
-              scoutedAt: new Date().toISOString().split("T")[0],
+              scoutNote: note,
+              scoutedBy: scout,
+              scoutedAt: date,
             }
           : p
       )
@@ -150,47 +218,101 @@ export default function PlayersPage() {
     setIsAddNoteOpen(false);
     setNewScoutNote("");
     toast.success(`Scout note logged for ${selected.fullName}!`);
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/players/${selected.id}/scout`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          scoutNote: note,
+          scoutedBy: scout,
+          scoutedAt: date,
+        }),
+      });
+    } catch (err) {
+      console.error("Scout note error:", err);
+    }
   }
 
-  function handleAddMedicalFlag(e: React.FormEvent) {
+  async function handleAddMedicalFlag(e: React.FormEvent) {
     e.preventDefault();
     if (!selected || !newMedicalLabel.trim()) {
       toast.error("Please enter medical flag description.");
       return;
     }
     const newFlag = { label: newMedicalLabel.trim(), severity: newMedicalSeverity };
+    const updatedFlags = [...selected.medicalFlags, newFlag];
+
     setPlayersList((prev) =>
       prev.map((p) =>
         p.id === selected.id
           ? {
               ...p,
-              medicalFlags: [...p.medicalFlags, newFlag],
+              medicalFlags: updatedFlags,
             }
           : p
       )
     );
     setNewMedicalLabel("");
     toast.success(`Medical flag recorded for ${selected.fullName}`);
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/players/${selected.id}/medical`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ medicalFlags: updatedFlags }),
+      });
+    } catch (err) {
+      console.error("Medical flag error:", err);
+    }
   }
 
-  function handleDeleteMedicalFlag(flagLabel: string) {
+  async function handleDeleteMedicalFlag(flagLabel: string) {
     if (!selected) return;
+    const updatedFlags = selected.medicalFlags.filter((f) => f.label !== flagLabel);
+
     setPlayersList((prev) =>
       prev.map((p) =>
         p.id === selected.id
           ? {
               ...p,
-              medicalFlags: p.medicalFlags.filter((f) => f.label !== flagLabel),
+              medicalFlags: updatedFlags,
             }
           : p
       )
     );
     toast.success("Medical flag cleared.");
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/players/${selected.id}/medical`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ medicalFlags: updatedFlags }),
+      });
+    } catch (err) {
+      console.error("Medical flag delete error:", err);
+    }
   }
 
-  function handleSaveKit(e: React.FormEvent, shirt: string, shorts: string, socks: string) {
+  async function handleSaveKit(e: React.FormEvent, shirt: string, shorts: string, socks: string) {
     e.preventDefault();
     if (!selected) return;
+
     setPlayersList((prev) =>
       prev.map((p) =>
         p.id === selected.id
@@ -205,6 +327,21 @@ export default function PlayersPage() {
     );
     setIsKitModalOpen(false);
     toast.success(`Kit & apparel sizing updated for ${selected.fullName}!`);
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/admin/players/${selected.id}/kit`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ shirtSize: shirt, shortsSize: shorts, sockSize: socks }),
+      });
+    } catch (err) {
+      console.error("Kit size update error:", err);
+    }
   }
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Shield,
@@ -19,8 +19,8 @@ import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import StatusPill from "@/components/ui/StatusPill";
 import Avatar from "@/components/ui/Avatar";
-import { fixtures, leagueStats, players, getClub, getStaff } from "@/lib/mockData";
-import { timeAgo } from "@/lib/utils";
+import { fixtures, leagueStats as initialStats, players, getClub, getStaff } from "@/lib/mockData";
+import { timeAgo, getCookie } from "@/lib/utils";
 
 interface RegistrationFeedItem {
   id: string;
@@ -40,7 +40,37 @@ const initialRegistrationFeed: RegistrationFeedItem[] = [
 ];
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState(initialStats);
   const [feed, setFeed] = useState<RegistrationFeedItem[]>(initialRegistrationFeed);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+        const token = getCookie("tpl_admin_token");
+        const res = await fetch(`${apiBaseUrl}/api/admin/stats`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.stats) {
+            setStats((prev) => ({
+              ...prev,
+              activeClubs: data.stats.activeClubs ?? prev.activeClubs,
+              registeredPlayers: data.stats.registeredPlayers ?? prev.registeredPlayers,
+              pendingRegistrations: data.stats.pendingRegistrations ?? prev.pendingRegistrations,
+            }));
+          }
+          if (data.registrationFeed && data.registrationFeed.length > 0) {
+            setFeed(data.registrationFeed);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load admin stats from backend:", err);
+      }
+    }
+    fetchStats();
+  }, []);
 
   const liveFixtures = fixtures.filter((f) => f.status === "LIVE");
   const topScouted = [...players].sort((a, b) => (b.scoutGrade ?? 0) - (a.scoutGrade ?? 0)).slice(0, 4);
@@ -77,19 +107,19 @@ export default function DashboardPage() {
       {/* Actionable KPI Metric Cards with Deep Links */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 items-stretch">
         <Link href="/teams" className="block h-full transition-transform hover:-translate-y-0.5">
-          <StatCard label="Active Clubs" value={leagueStats.activeClubs} icon={Shield} tone="gold" trend={leagueStats.activeClubsTrend} />
+          <StatCard label="Active Clubs" value={stats.activeClubs} icon={Shield} tone="gold" trend={stats.activeClubsTrend} />
         </Link>
         <Link href="/players" className="block h-full transition-transform hover:-translate-y-0.5">
-          <StatCard label="Registered Players" value={leagueStats.registeredPlayers.toLocaleString()} icon={Users} tone="ink" trend={leagueStats.registeredPlayersTrend} />
+          <StatCard label="Registered Players" value={stats.registeredPlayers.toLocaleString()} icon={Users} tone="ink" trend={stats.registeredPlayersTrend} />
         </Link>
         <Link href="/teams" className="block h-full transition-transform hover:-translate-y-0.5">
-          <StatCard label="Pending Registrations" value={leagueStats.pendingRegistrations} icon={Clock} tone="warning" trend="Needs review" />
+          <StatCard label="Pending Registrations" value={stats.pendingRegistrations} icon={Clock} tone="warning" trend="Needs review" />
         </Link>
         <Link href="/fixtures" className="block h-full transition-transform hover:-translate-y-0.5">
-          <StatCard label="Matches This Week" value={leagueStats.matchesThisWeek} icon={CalendarDays} tone="success" trend="On schedule" />
+          <StatCard label="Matches This Week" value={stats.matchesThisWeek} icon={CalendarDays} tone="success" trend="On schedule" />
         </Link>
         <Link href="/standings" className="block h-full transition-transform hover:-translate-y-0.5">
-          <StatCard label="Prize Pool" value={`£${leagueStats.prizePool.toLocaleString()}`} icon={Trophy} tone="gold" trend="Fully funded" />
+          <StatCard label="Prize Pool" value={`£${stats.prizePool.toLocaleString()}`} icon={Trophy} tone="gold" trend="Fully funded" />
         </Link>
       </div>
 

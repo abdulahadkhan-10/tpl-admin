@@ -3,10 +3,17 @@
 import React, { useState, useEffect } from "react";
 import { Search, ChevronDown, Bell } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
+import { getSocket } from "@/lib/socket";
+import toast from "react-hot-toast";
 
 export default function Header() {
   const [seasonOpen, setSeasonOpen] = useState(false);
   const [user, setUser] = useState<{ fullName: string; roleType: string } | null>(null);
+  const [unreadCount, setUnreadCount] = useState(1);
+  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; message: string; time: string }>>([
+    { id: "1", title: "System Ready", message: "TPL Central Control connected & active", time: "Just now" },
+  ]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("tpl_admin_user");
@@ -17,7 +24,50 @@ export default function Header() {
         console.error("Failed to parse user session", err);
       }
     }
+
+    const socket = getSocket();
+    socket.emit("join_admin_notifications");
+
+    const handleAdminAlert = (alert: { title: string; message: string; category: string; timestamp?: string }) => {
+      toast.custom(
+        (t) => (
+          <div
+            className={`${
+              t.visible ? "animate-enter" : "animate-leave"
+            } max-w-md w-full bg-[#1A1C1C] text-white shadow-2xl rounded-xl pointer-events-auto flex ring-1 ring-black/5 p-4 border border-[#FFB800]/30`}
+          >
+            <div className="flex-1 w-0">
+              <div className="flex items-start">
+                <div className="ml-3 flex-1">
+                  <p className="text-xs font-black font-montserrat uppercase text-[#FFB800]">{alert.title}</p>
+                  <p className="mt-1 text-xs text-slate-300">{alert.message}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ),
+        { duration: 4000 }
+      );
+
+      setNotifications((prev) => [
+        {
+          id: `notif-${Date.now()}`,
+          title: alert.title,
+          message: alert.message,
+          time: "Just now",
+        },
+        ...prev,
+      ]);
+      setUnreadCount((c) => c + 1);
+    };
+
+    socket.on("admin_alert", handleAdminAlert);
+
+    return () => {
+      socket.off("admin_alert", handleAdminAlert);
+    };
   }, []);
+
 
   return (
     <header className="h-16 bg-white border-b border-[#E5E7EB] px-4 md:px-6 flex items-center justify-between gap-4 shrink-0 shadow-xs">
@@ -59,10 +109,41 @@ export default function Header() {
           )}
         </div>
 
-        <button className="relative w-9 h-9 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center hover:border-[#FFB800] transition-colors cursor-pointer">
-          <Bell size={16} className="text-slate-600" />
-          <span className="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-rose-500 border border-white" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => {
+              setShowNotifications((v) => !v);
+              setUnreadCount(0);
+            }}
+            className="relative w-9 h-9 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center hover:border-[#FFB800] transition-colors cursor-pointer"
+          >
+            <Bell size={16} className="text-slate-600" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center border border-white">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-80 bg-white border border-[#E5E7EB] rounded-xl shadow-xl py-2 z-30 divide-y divide-[#E5E7EB]">
+              <div className="px-4 py-2 flex items-center justify-between">
+                <span className="text-xs font-black font-montserrat uppercase text-[#1A1C1C]">Live Operations Feed</span>
+                <span className="text-[10px] text-[#7C5800] font-bold">Real-time Stream</span>
+              </div>
+              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 custom-scrollbar">
+                {notifications.map((n) => (
+                  <div key={n.id} className="p-3 hover:bg-[#F8F9FA] transition-colors">
+                    <p className="text-xs font-bold text-[#1A1C1C]">{n.title}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{n.message}</p>
+                    <span className="text-[9px] text-slate-400 font-medium mt-1 block">{n.time}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
 
         <div className="flex items-center gap-2.5 pl-1 cursor-pointer">
           <Avatar name={user?.fullName ?? "Alex Whitfield"} size="sm" tone="gold" />

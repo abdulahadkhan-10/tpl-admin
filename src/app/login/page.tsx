@@ -3,29 +3,9 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Eye,
-  EyeOff,
-  Mail,
-  Lock,
-  AlertCircle,
-  ArrowRight,
-  ShieldCheck,
-  Users,
-  Trophy,
-  CalendarClock,
-  Sparkles,
-  KeyRound,
-} from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { setCookie, getCookie } from "@/lib/utils";
-
-const FEATURES = [
-  { icon: Users, label: "Team & player management" },
-  { icon: Trophy, label: "Scouting intelligence" },
-  { icon: CalendarClock, label: "Fixtures & operations" },
-];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,9 +14,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(true);
 
-  // If already logged in, redirect straight to dashboard
   useEffect(() => {
     if (getCookie("tpl_admin_token")) {
       router.push("/");
@@ -54,7 +33,6 @@ export default function LoginPage() {
     setErrorMessage("");
 
     try {
-      // 1. Attempt to hit the backend API
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
         method: "POST",
@@ -67,15 +45,14 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Confirm user has permission to access Admin Panel
-        if (data.user.roleType !== "ADMIN") {
+        if (data.user?.roleType !== "ADMIN") {
           toast.error("Access denied. Admin authorization required.");
           setErrorMessage("This account does not have administrator privileges.");
           setIsLoading(false);
           return;
         }
 
-        setCookie("tpl_admin_token", data.token, 1);
+        setCookie("tpl_admin_token", data.token, rememberMe ? 7 : 1);
         localStorage.setItem(
           "tpl_admin_user",
           JSON.stringify({
@@ -93,7 +70,7 @@ export default function LoginPage() {
     } catch (err: any) {
       setErrorMessage(
         err.message === "Failed to fetch"
-          ? "Cannot connect to server. Please check your network connection and try again."
+          ? "Cannot connect to server. Please check backend connection."
           : err.message || "Invalid credentials."
       );
       toast.error("Sign in failed.");
@@ -103,294 +80,197 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0B0C] flex flex-col lg:grid lg:grid-cols-[1.05fr_1fr] font-roboto select-none">
+    <div className="min-h-screen w-full bg-[#0A0B0E] text-white flex flex-col lg:grid lg:grid-cols-2 font-roboto selection:bg-[#FFB800] selection:text-black">
+      
+      {/* ─── Left Visual Showcase ───────────────────────────────────────── */}
+      <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 overflow-hidden">
+        {/* Background Image with Cinematic Dark Gradient Overlay */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/images/tpl-slide1-matchday.png"
+            alt="Talent Pro League Matchday"
+            fill
+            priority
+            className="object-cover object-center brightness-75 scale-105 transition-transform duration-1000"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0B0E] via-[#0A0B0E]/60 to-[#0A0B0E]/80" />
+          <div className="absolute inset-0 bg-radial from-transparent via-[#0A0B0E]/40 to-[#0A0B0E]" />
+        </div>
 
-      {/* ─── Left Showcase Panel (Desktop Only) ─────────────────────────── */}
-      <div className="hidden lg:flex flex-col justify-between p-14 xl:p-16 relative overflow-hidden">
-
-        {/* Mesh gradient backdrop */}
-        <div className="absolute inset-0 bg-[#0B0B0C]" />
-        <div className="absolute -top-40 -left-32 w-[560px] h-[560px] bg-[#FFB800]/[0.16] blur-[140px] rounded-full pointer-events-none" />
-        <div className="absolute top-1/3 -right-40 w-[480px] h-[480px] bg-[#3B82F6]/[0.10] blur-[140px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] bg-[#FFB800]/[0.08] blur-[130px] rounded-full pointer-events-none" />
-
-        {/* Fine grid overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
-            backgroundSize: "44px 44px",
-            maskImage: "radial-gradient(ellipse 80% 60% at 50% 40%, black 40%, transparent 90%)",
-          }}
-        />
-
-        {/* Top: Logo + Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="z-10 flex items-center justify-between"
-        >
+        {/* Brand Header */}
+        <div className="relative z-10">
           <Image
             src="/images/TPL_logo_White.png"
             alt="Talent Pro League"
-            width={136}
-            height={38}
+            width={150}
+            height={44}
             priority
             unoptimized
-            className="h-8 w-auto object-contain"
+            className="h-10 w-auto object-contain"
           />
-          <div className="flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 backdrop-blur-sm">
-            <ShieldCheck size={12} className="text-[#FFB800]" />
-            <span className="text-[10.5px] font-semibold tracking-wide text-white/70">Admin Console</span>
-          </div>
-        </motion.div>
-
-        {/* Center: Headline + Features */}
-        <div className="z-10 max-w-md">
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.1 }}
-          >
-            <div className="inline-flex items-center gap-1.5 mb-5 text-[#FFB800]">
-              <Sparkles size={13} />
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em]">Talent Pro League</span>
-            </div>
-            <h1 className="text-[2.6rem] leading-[1.08] font-black font-montserrat tracking-tight text-white">
-              Command your
-              <br />
-              <span className="bg-gradient-to-r from-[#FFB800] to-[#FFD666] bg-clip-text text-transparent">
-                entire league.
-              </span>
-            </h1>
-            <p className="text-[14px] text-white/45 leading-relaxed mt-5 max-w-sm">
-              One control center for teams, players, fixtures, and scouting operations across the whole competition.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-10 space-y-1"
-          >
-            {FEATURES.map((f, i) => (
-              <motion.div
-                key={f.label}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.35 + i * 0.08 }}
-                className="flex items-center gap-3 py-2.5 group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center shrink-0 group-hover:border-[#FFB800]/30 group-hover:bg-[#FFB800]/[0.08] transition-colors">
-                  <f.icon size={14} className="text-[#FFB800]" />
-                </div>
-                <span className="text-[13px] font-medium text-white/60">{f.label}</span>
-              </motion.div>
-            ))}
-          </motion.div>
         </div>
 
-        {/* Bottom: Status strip */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="z-10 flex items-center justify-between pt-6 border-t border-white/[0.08]"
-        >
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-            </span>
-            <span className="text-[11px] font-medium text-white/35">All systems operational</span>
-          </div>
-          <span className="text-[11px] font-medium text-white/25">TPL-ADMIN 2.0</span>
-        </motion.div>
+        {/* Editorial Text */}
+        <div className="relative z-10 max-w-lg space-y-4">
+          <div className="w-12 h-1 bg-[#FFB800] rounded-full" />
+          <h1 className="text-3xl xl:text-4xl font-extrabold font-montserrat text-white tracking-tight leading-tight">
+            The Official League Management Platform
+          </h1>
+          <p className="text-sm xl:text-base text-zinc-300 leading-relaxed">
+            Centralized administration for competition fixtures, franchise operations, athlete records, and scouting intelligence.
+          </p>
+        </div>
+
+        {/* Footer Note */}
+        <div className="relative z-10 text-xs text-zinc-400">
+          &copy; {new Date().getFullYear()} Talent Pro League. All rights reserved.
+        </div>
       </div>
 
       {/* ─── Right Form Panel ────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-[#FCFCFC] relative">
-
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20 bg-[#0A0B0E] relative z-10">
+        
         {/* Mobile Header Logo */}
-        <div className="lg:hidden mb-10 select-none">
+        <div className="lg:hidden mb-10">
           <Image
-            src="/images/TPL_logo_Dark.png"
+            src="/images/TPL_logo_White.png"
             alt="Talent Pro League"
-            width={110}
-            height={32}
+            width={140}
+            height={40}
             unoptimized
-            className="h-7 w-auto object-contain"
+            className="h-9 w-auto object-contain"
           />
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="w-full max-w-[380px]"
-        >
-          {/* Card */}
-          <div className="bg-white border border-black/[0.06] rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.02),0_16px_48px_-12px_rgba(0,0,0,0.08)] p-7 md:p-9">
+        <div className="w-full max-w-md">
+          {/* Header */}
+          <div className="mb-8">
+            <h2 className="text-2xl sm:text-3xl font-extrabold font-montserrat text-white tracking-tight">
+              Admin Sign In
+            </h2>
+            <p className="text-sm text-zinc-400 mt-2">
+              Enter your authorized credentials to access the console.
+            </p>
+          </div>
 
-            {/* Icon badge */}
-            <div className="w-11 h-11 rounded-xl bg-[#111111] flex items-center justify-center mb-5 shadow-[0_4px_14px_rgba(0,0,0,0.15)]">
-              <KeyRound size={18} className="text-[#FFB800]" />
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="mb-6 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 flex items-start gap-3 text-sm">
+              <AlertCircle size={18} className="shrink-0 text-red-400 mt-0.5" />
+              <span>{errorMessage}</span>
             </div>
+          )}
 
-            {/* Header */}
-            <div className="mb-7">
-              <h1 className="text-[22px] font-black font-montserrat text-[#111111] tracking-tight">
-                Admin sign in
-              </h1>
-              <p className="text-[13px] text-slate-500 mt-1.5 leading-relaxed">
-                Restricted access &mdash; authorized league administrators only.
-              </p>
-            </div>
-
-            {/* Error Message */}
-            <AnimatePresence>
-              {errorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                  animate={{ opacity: 1, height: "auto", marginBottom: 20 }}
-                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-3.5 py-2.5 bg-red-50 border border-red-100 text-red-700 rounded-xl flex gap-2 items-start text-[12.5px] font-medium leading-snug">
-                    <AlertCircle size={15} className="shrink-0 mt-[1px]" />
-                    <span>{errorMessage}</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-
-              {/* Email Field */}
-              <div className="space-y-1.5">
-                <label htmlFor="email" className="text-[12.5px] font-semibold text-[#111111] block">
-                  Email address
-                </label>
-                <div
-                  className={`relative flex items-center rounded-xl border transition-all ${
-                    focusedField === "email"
-                      ? "border-[#111111] ring-4 ring-[#111111]/[0.06]"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <Mail size={16} className="absolute left-3.5 text-slate-400 pointer-events-none" />
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onFocus={() => setFocusedField("email")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="you@tpl.dev"
-                    autoComplete="email"
-                    className="w-full pl-10 pr-3.5 py-2.75 bg-transparent text-sm text-[#111111] placeholder:text-slate-400 outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Password Field */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="text-[12.5px] font-semibold text-[#111111] block">
-                    Password
-                  </label>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    className="text-[11.5px] font-semibold text-slate-400 hover:text-[#111111] cursor-pointer outline-none transition-colors"
-                    onClick={() => toast("Contact support to reset your password", { icon: "🔒" })}
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-                <div
-                  className={`relative flex items-center rounded-xl border transition-all ${
-                    focusedField === "password"
-                      ? "border-[#111111] ring-4 ring-[#111111]/[0.06]"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <Lock size={16} className="absolute left-3.5 text-slate-400 pointer-events-none" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onFocus={() => setFocusedField("password")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    className="w-full pl-10 pr-10 py-2.75 bg-transparent text-sm text-[#111111] placeholder:text-slate-400 outline-none"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    tabIndex={-1}
-                    className="absolute right-3.5 text-slate-400 hover:text-[#111111] cursor-pointer outline-none flex items-center justify-center transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Remember Me */}
-              <div className="flex items-center gap-2 pt-0.5">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  className="w-3.5 h-3.5 accent-[#111111] rounded border-slate-300 cursor-pointer"
-                />
-                <label
-                  htmlFor="remember"
-                  className="text-[12.5px] text-slate-500 hover:text-[#111111] cursor-pointer select-none transition-colors"
-                >
-                  Stay signed in on this device
-                </label>
-              </div>
-
-              {/* Submit Button */}
-              <motion.button
-                type="submit"
-                disabled={isLoading}
-                whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.99 }}
-                className="w-full py-3 mt-2 bg-[#111111] hover:bg-black text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_8px_20px_-6px_rgba(0,0,0,0.35)]"
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email Field */}
+            <div className="space-y-2">
+              <label
+                htmlFor="email"
+                className="text-xs font-semibold uppercase tracking-wider text-zinc-300 block font-montserrat"
               >
-                {isLoading ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                    <span>Signing in&hellip;</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Sign in to console</span>
-                    <ArrowRight size={15} />
-                  </>
-                )}
-              </motion.button>
+                Email Address
+              </label>
+              <div className="relative flex items-center">
+                <Mail size={18} className="absolute left-4 text-zinc-500 pointer-events-none" />
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@talentproleague.com"
+                  autoComplete="email"
+                  className="w-full pl-11 pr-4 py-3.5 bg-zinc-900/80 border border-zinc-800 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#FFB800] focus:ring-1 focus:ring-[#FFB800] transition-colors"
+                  required
+                />
+              </div>
+            </div>
 
-            </form>
-          </div>
+            {/* Password Field */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="password"
+                  className="text-xs font-semibold uppercase tracking-wider text-zinc-300 block font-montserrat"
+                >
+                  Password
+                </label>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="text-xs text-zinc-400 hover:text-[#FFB800] transition-colors"
+                  onClick={() => toast("Please contact your system administrator to reset credentials.")}
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <div className="relative flex items-center">
+                <Lock size={18} className="absolute left-4 text-zinc-500 pointer-events-none" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  className="w-full pl-11 pr-11 py-3.5 bg-zinc-900/80 border border-zinc-800 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#FFB800] focus:ring-1 focus:ring-[#FFB800] transition-colors"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-4 text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
 
-          {/* Footer trust note */}
-          <div className="flex items-center justify-center gap-1.5 mt-6 text-[11px] font-medium text-slate-400">
-            <ShieldCheck size={12} />
-            <span>Secured session &middot; TPL Admin v2.0</span>
+            {/* Remember Me */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <input
+                type="checkbox"
+                id="remember"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 accent-[#FFB800] cursor-pointer"
+              />
+              <label
+                htmlFor="remember"
+                className="text-xs text-zinc-400 hover:text-zinc-300 cursor-pointer select-none"
+              >
+                Keep me signed in on this device
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3.5 mt-2 bg-[#FFB800] hover:bg-[#f0ad00] active:scale-[0.99] text-black font-extrabold font-montserrat text-sm tracking-wide rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                  <span>Signing in...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <ArrowRight size={16} className="stroke-[2.5]" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Footer Note */}
+          <div className="mt-8 text-center text-xs text-zinc-400">
+            Authorized personnel only. All access attempts are logged.
           </div>
-        </motion.div>
+        </div>
       </div>
-
     </div>
   );
 }

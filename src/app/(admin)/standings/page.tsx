@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Trophy,
   Download,
@@ -50,6 +50,7 @@ const FORM_STYLE: Record<"W" | "D" | "L", string> = {
 
 export default function StandingsPage() {
   const [division, setDivision] = useState<DivisionType>("Premier Division");
+  const [isLoading, setIsLoading] = useState(false);
 
   // Division Tables State
   const [divisionData, setDivisionData] = useState<Record<DivisionType, StandingRow[]>>({
@@ -57,6 +58,32 @@ export default function StandingsPage() {
     "Championship": initialChampionshipStandings,
     "U18 Academy League": initialU18Standings,
   });
+
+  // Fetch dynamic standings from backend API
+  const fetchStandings = async () => {
+    try {
+      setIsLoading(true);
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiBaseUrl}/api/fixtures/standings`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.standings && Array.isArray(data.standings) && data.standings.length > 0) {
+          setDivisionData((prev) => ({
+            ...prev,
+            "Premier Division": data.standings,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load standings from backend:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStandings();
+  }, []);
 
   // Points Penalty Modal State
   const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
@@ -136,8 +163,9 @@ export default function StandingsPage() {
     toast.success(`Penalty revoked for ${clubName}. Points restored.`);
   }
 
-  function handleSyncFixtures() {
-    toast.success(`Standings table synchronized with latest Matchday 14 full-time results!`);
+  async function handleSyncFixtures() {
+    await fetchStandings();
+    toast.success(`Standings table synchronized with latest match results!`);
   }
 
   function handleExportCSV() {

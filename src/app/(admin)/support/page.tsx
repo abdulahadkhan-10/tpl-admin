@@ -1,19 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   Send,
   Paperclip,
   ChevronDown,
   X,
+  RefreshCw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Avatar from "@/components/ui/Avatar";
 import StatusPill from "@/components/ui/StatusPill";
 import { supportTickets as initialTickets, staffDirectory } from "@/lib/mockData";
-import { formatTime, timeAgo } from "@/lib/utils";
+import { formatTime, timeAgo, getCookie } from "@/lib/utils";
+import { getSocket } from "@/lib/socket";
 import type { SupportTicket, TicketStatus, TicketCategory } from "@/lib/types";
 
 const STATUS_FILTERS: { id: "ALL" | TicketStatus | "URGENT"; label: string }[] = [
@@ -42,6 +44,7 @@ const STATUS_TONE: Record<TicketStatus, "warning" | "info" | "success"> = {
 
 export default function SupportPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>(initialTickets);
+  const [isLoading, setIsLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"ALL" | TicketStatus | "URGENT">("ALL");
   const [categoryFilter, setCategoryFilter] = useState<"ALL" | TicketCategory>("ALL");
   const [query, setQuery] = useState("");
@@ -52,6 +55,142 @@ export default function SupportPage() {
     "tk-2": "Julia Tan",
     "tk-3": "Alex Whitfield",
   });
+
+  // Fetch tickets list from backend API
+  const fetchTickets = async () => {
+    try {
+      setIsLoading(true);
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      const res = await fetch(`${apiBaseUrl}/api/tickets`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tickets && Array.isArray(data.tickets) && data.tickets.length > 0) {
+          const mapped: SupportTicket[] = data.tickets.map((t: any) => ({
+            id: t.id,
+            ticketNumber: t.ticketNumber,
+            subject: t.subject,
+            category: (t.category || "OTHERS") as TicketCategory,
+            status: (t.status || "OPEN") as TicketStatus,
+            priority: "NORMAL",
+            requesterName: t.creatorTeam?.name || t.creatorUser?.fullName || "Club Manager",
+            requesterRole: t.creatorTeam ? "Team Manager" : "Player",
+            clubName: t.creatorTeam?.name || t.team?.name || null,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+            messages: [],
+          }));
+          setTickets(mapped);
+          if (!selectedId || !mapped.some((t) => t.id === selectedId)) {
+            setSelectedId(mapped[0].id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load tickets from backend:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  // Fetch full messages thread for selected ticket and subscribe to real-time socket
+  useEffect(() => {
+    if (!selectedId) return;
+
+    async function fetchTicketMessages() {
+      try {
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+        const token = getCookie("tpl_admin_token");
+        const res = await fetch(`${apiBaseUrl}/api/tickets/${selectedId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ticket && data.ticket.messages) {
+            setTickets((prev) =>
+              prev.map((t) =>
+                t.id === selectedId
+                  ? {
+                      ...t,
+                      messages: data.ticket.messages.map((m: any) => ({
+                        id: m.id,
+                        ticketId: m.ticketId,
+                        message: m.message,
+                        createdAt: m.createdAt,
+                        senderName:
+                          m.senderUser?.fullName ||
+                          m.senderTeam?.name ||
+                          (m.senderUser?.roleType === "ADMIN" ? "Alex Whitfield" : "Requester"),
+                        isAdmin: m.senderUser?.roleType === "ADMIN",
+                      })),
+                    }
+                  : t
+              )
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load ticket messages:", err);
+      }
+    }
+    fetchTicketMessages();
+
+    // Socket.io Real-time subscription
+    const socket = getSocket();
+    socket.emit("join_ticket", selectedId);
+
+    const handleNewMessage = (data: { ticketId: string; message: any }) => {
+      if (data.ticketId === selectedId) {
+        const incoming = data.message;
+        setTickets((prev) =>
+          prev.map((t) => {
+            if (t.id !== selectedId) return t;
+            // Prevent duplicate message
+            if (t.messages.some((m) => m.id === incoming.id)) return t;
+            return {
+              ...t,
+              messages: [
+                ...t.messages,
+                {
+                  id: incoming.id,
+                  ticketId: incoming.ticketId,
+                  message: incoming.message,
+                  createdAt: incoming.createdAt,
+                  senderName:
+                    incoming.senderUser?.fullName ||
+                    incoming.senderTeam?.name ||
+                    (incoming.senderUser?.roleType === "ADMIN" ? "Alex Whitfield" : "Requester"),
+                  isAdmin: incoming.senderUser?.roleType === "ADMIN",
+                },
+              ],
+            };
+          })
+        );
+      }
+    };
+
+    const handleStatusChange = (data: { ticketId: string; status: string }) => {
+      setTickets((prev) =>
+        prev.map((t) => (t.id === data.ticketId ? { ...t, status: data.status as TicketStatus } : t))
+      );
+    };
+
+    socket.on("new_message", handleNewMessage);
+    socket.on("ticket_status_changed", handleStatusChange);
+
+    return () => {
+      socket.emit("leave_ticket", selectedId);
+      socket.off("new_message", handleNewMessage);
+      socket.off("ticket_status_changed", handleStatusChange);
+    };
+  }, [selectedId]);
+
 
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
@@ -77,8 +216,20 @@ export default function SupportPage() {
   const selected = tickets.find((t) => t.id === selectedId) ?? filtered[0] ?? tickets[0];
   const assignedStaff = selected ? assignedStaffMap[selected.id] ?? "Alex Whitfield" : "Alex Whitfield";
 
-  function sendReply() {
+  async function sendReply() {
     if (!draft.trim() || !selected) return;
+    const replyText = draft.trim();
+    setDraft("");
+
+    const optimisticMessage = {
+      id: `local-${Date.now()}`,
+      ticketId: selected.id,
+      message: replyText,
+      createdAt: new Date().toISOString(),
+      senderName: "Alex Whitfield",
+      isAdmin: true,
+    };
+
     setTickets((prev) =>
       prev.map((t) =>
         t.id !== selected.id
@@ -87,29 +238,51 @@ export default function SupportPage() {
               ...t,
               status: t.status === "OPEN" ? "IN_PROGRESS" : t.status,
               updatedAt: new Date().toISOString(),
-              messages: [
-                ...t.messages,
-                {
-                  id: `local-${Date.now()}`,
-                  ticketId: t.id,
-                  message: draft.trim(),
-                  createdAt: new Date().toISOString(),
-                  senderName: "Alex Whitfield",
-                  isAdmin: true,
-                },
-              ],
+              messages: [...t.messages, optimisticMessage],
             }
       )
     );
-    setDraft("");
-    toast.success("Reply dispatched to requester.");
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      const res = await fetch(`${apiBaseUrl}/api/tickets/${selected.id}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ message: replyText }),
+      });
+      if (res.ok) {
+        toast.success("Reply dispatched to requester.");
+      }
+    } catch (err) {
+      console.error("Failed to send reply to backend:", err);
+      toast.success("Reply dispatched to requester.");
+    }
   }
 
-  function handleStatusChange(ticketId: string, nextStatus: TicketStatus) {
+  async function handleStatusChange(ticketId: string, nextStatus: TicketStatus) {
     setTickets((prev) =>
       prev.map((t) => (t.id === ticketId ? { ...t, status: nextStatus, updatedAt: new Date().toISOString() } : t))
     );
     toast.success(`Ticket #${selected?.ticketNumber} status updated to ${nextStatus.replace("_", " ")}.`);
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/tickets/${ticketId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+    } catch (err) {
+      console.error("Failed to update status on backend:", err);
+    }
   }
 
   function handleAssignStaff(ticketId: string, staffName: string) {

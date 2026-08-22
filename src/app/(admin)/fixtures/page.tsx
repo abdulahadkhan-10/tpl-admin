@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Plus,
   Minus,
@@ -16,13 +16,14 @@ import {
   Edit3,
   PauseCircle,
   ShieldAlert,
+  RefreshCw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Avatar from "@/components/ui/Avatar";
 import StatusPill from "@/components/ui/StatusPill";
 import { clubs, fixtures as initialFixtures, getClub, getStaff, staffDirectory, players } from "@/lib/mockData";
-import { formatDate, formatTime } from "@/lib/utils";
+import { formatDate, formatTime, getCookie } from "@/lib/utils";
 import type { Fixture, FixtureStatus, GoalEvent, CardEvent } from "@/lib/types";
 
 const TABS: { id: "ALL" | FixtureStatus; label: string }[] = [
@@ -75,6 +76,7 @@ function CardIcon({ type, className = "w-2.5 h-3.5" }: { type: "YELLOW" | "RED";
 export default function FixturesPage() {
   const [tab, setTab] = useState<"ALL" | FixtureStatus>("ALL");
   const [fixtures, setFixtures] = useState<Fixture[]>(initialFixtures);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -109,6 +111,29 @@ export default function FixturesPage() {
   const [refereeId, setRefereeId] = useState(staffDirectory.find((s) => s.role === "REFEREE")?.id ?? "");
   const [commissionerId, setCommissionerId] = useState(staffDirectory.find((s) => s.role === "COMMISSIONER")?.id ?? "");
 
+  // Fetch real fixtures from backend API
+  const fetchFixtures = async () => {
+    try {
+      setIsLoading(true);
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiBaseUrl}/api/fixtures`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.fixtures && Array.isArray(data.fixtures) && data.fixtures.length > 0) {
+          setFixtures(data.fixtures);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch fixtures from backend API:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFixtures();
+  }, []);
+
   // Unique venues for filter dropdown
   const uniqueVenues = useMemo(() => {
     const vSet = new Set<string>();
@@ -137,7 +162,7 @@ export default function FixturesPage() {
   const liveCount = fixtures.filter((f) => f.status === "LIVE").length;
 
   // Lifecycle Controls
-  function startMatch(id: string) {
+  async function startMatch(id: string) {
     setFixtures((prev) =>
       prev.map((f) =>
         f.id === id
@@ -152,9 +177,29 @@ export default function FixturesPage() {
       )
     );
     toast.success("Match started! Live tracking active.");
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/fixtures/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          status: "LIVE",
+          minute: 1,
+          homeScore: 0,
+          awayScore: 0,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to start match on backend:", err);
+    }
   }
 
-  function endMatch(id: string) {
+  async function endMatch(id: string) {
     setFixtures((prev) =>
       prev.map((f) =>
         f.id === id
@@ -167,18 +212,62 @@ export default function FixturesPage() {
       )
     );
     toast.success("Match concluded (Full Time)!");
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/fixtures/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          status: "FULL_TIME",
+          minute: 90,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to conclude match on backend:", err);
+    }
   }
 
-  function postponeMatch(id: string) {
+  async function postponeMatch(id: string) {
     setFixtures((prev) =>
       prev.map((f) => (f.id === id ? { ...f, status: "POSTPONED" } : f))
     );
     toast.success("Match marked as Postponed.");
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/fixtures/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status: "POSTPONED" }),
+      });
+    } catch (err) {
+      console.error("Failed to postpone match on backend:", err);
+    }
   }
 
-  function deleteFixture(id: string) {
+  async function deleteFixture(id: string) {
     setFixtures((prev) => prev.filter((f) => f.id !== id));
     toast.success("Fixture deleted.");
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/fixtures/${id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch (err) {
+      console.error("Failed to delete fixture on backend:", err);
+    }
   }
 
   // Open Event Modal (Goal or Card)
@@ -193,18 +282,20 @@ export default function FixturesPage() {
     setCardReason(CARD_REASONS[0]);
   }
 
-  function handleSaveEvent(e: React.FormEvent) {
+  async function handleSaveEvent(e: React.FormEvent) {
     e.preventDefault();
     if (!eventModal || !playerName.trim()) {
       toast.error("Please select or enter a player name.");
       return;
     }
 
+    const { fixtureId, clubId, side } = eventModal;
+
     if (eventType === "GOAL") {
       const newGoal: GoalEvent = {
         id: `goal-${Date.now()}`,
-        fixtureId: eventModal.fixtureId,
-        clubId: eventModal.clubId,
+        fixtureId,
+        clubId,
         scorerName: playerName.trim(),
         minute: Number(eventMinute) || 1,
         type: goalType,
@@ -213,8 +304,8 @@ export default function FixturesPage() {
 
       setFixtures((prev) =>
         prev.map((f) => {
-          if (f.id !== eventModal.fixtureId) return f;
-          const key = eventModal.side === "home" ? "homeScore" : "awayScore";
+          if (f.id !== fixtureId) return f;
+          const key = side === "home" ? "homeScore" : "awayScore";
           const nextScore = (f[key] ?? 0) + 1;
           const existingGoals = f.goals ?? [];
           return {
@@ -225,11 +316,36 @@ export default function FixturesPage() {
         })
       );
       toast.success(`Goal logged for ${playerName} (${eventMinute}')!`);
+
+      try {
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+        const token = getCookie("tpl_admin_token");
+        await fetch(`${apiBaseUrl}/api/fixtures/${fixtureId}/events`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            type: "GOAL",
+            side,
+            eventData: {
+              clubId,
+              scorerName: playerName.trim(),
+              minute: Number(eventMinute) || 1,
+              type: goalType,
+              assistName: assistName.trim() || null,
+            },
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to record goal on backend:", err);
+      }
     } else {
       const newCard: CardEvent = {
         id: `card-${Date.now()}`,
-        fixtureId: eventModal.fixtureId,
-        clubId: eventModal.clubId,
+        fixtureId,
+        clubId,
         playerName: playerName.trim(),
         minute: Number(eventMinute) || 1,
         cardType: eventType,
@@ -238,7 +354,7 @@ export default function FixturesPage() {
 
       setFixtures((prev) =>
         prev.map((f) => {
-          if (f.id !== eventModal.fixtureId) return f;
+          if (f.id !== fixtureId) return f;
           const existingCards = f.cards ?? [];
           return {
             ...f,
@@ -247,6 +363,30 @@ export default function FixturesPage() {
         })
       );
       toast.success(`${eventType === "YELLOW" ? "Yellow Card" : "Red Card"} issued to ${playerName} (${eventMinute}')!`);
+
+      try {
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+        const token = getCookie("tpl_admin_token");
+        await fetch(`${apiBaseUrl}/api/fixtures/${fixtureId}/events`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            type: eventType,
+            side,
+            eventData: {
+              clubId,
+              playerName: playerName.trim(),
+              minute: Number(eventMinute) || 1,
+              reason: cardReason,
+            },
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to record card on backend:", err);
+      }
     }
 
     setEventModal(null);
@@ -308,7 +448,7 @@ export default function FixturesPage() {
   }
 
   // Edit Fixture Submit
-  function handleSaveEditFixture(e: React.FormEvent) {
+  async function handleSaveEditFixture(e: React.FormEvent) {
     e.preventDefault();
     if (!editingFixture) return;
 
@@ -316,11 +456,27 @@ export default function FixturesPage() {
       prev.map((f) => (f.id === editingFixture.id ? editingFixture : f))
     );
     toast.success("Fixture details updated successfully!");
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/fixtures/${editingFixture.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(editingFixture),
+      });
+    } catch (err) {
+      console.error("Failed to update fixture on backend:", err);
+    }
+
     setEditingFixture(null);
   }
 
   // Create New Fixture Form Submit
-  function handleScheduleFixture(e: React.FormEvent) {
+  async function handleScheduleFixture(e: React.FormEvent) {
     e.preventDefault();
     if (!homeClubId || !awayClubId) {
       toast.error("Please select both home and away clubs.");
@@ -355,6 +511,21 @@ export default function FixturesPage() {
 
     setFixtures((prev) => [newFixture, ...prev]);
     toast.success("New fixture scheduled successfully!");
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = getCookie("tpl_admin_token");
+      await fetch(`${apiBaseUrl}/api/fixtures`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(newFixture),
+      });
+    } catch (err) {
+      console.error("Failed to save fixture to backend:", err);
+    }
   }
 
   const activeClubForModal = eventModal ? getClub(eventModal.clubId) : null;
